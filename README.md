@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/32908945/README.md)
 # nodus — Engineering MEP Supports
 
 Web app per il dimensionamento di staffaggi MEP (tubazioni, passerelle/canaline, canali aria):
