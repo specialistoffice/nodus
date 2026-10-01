@@ -86,7 +86,7 @@
     </script>
 
     <!-- Header Navigation -->
-    <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-50">
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
             <div class="leading-none">
                 <svg viewBox="90 378 885 268" width="106" height="32" style="display:block"><use href="#nodus-wordmark"/></svg>
@@ -616,7 +616,7 @@
                             <i class="fa-solid fa-square text-brand-600"></i> + Piastra Parete
                         </button>
                         <button onclick="setCadTool('pipe')" id="cad-tool-pipe" class="cad-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-dot text-cyan-400"></i> + Collare Tubo
+                            <i id="cad-tool-pipe-icon" class="fa-solid fa-circle-dot text-cyan-400"></i> <span id="cad-tool-pipe-label">+ Collare Tubo</span>
                         </button>
                         <button onclick="setCadTool('brace')" id="cad-tool-brace" class="cad-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 border border-emerald-500/30">
                             <i class="fa-solid fa-shield-halved text-emerald-700"></i> + Controvento Sismico 45°
@@ -1881,6 +1881,19 @@
             if (t === 'tray') calcTray();
             if (t === 'duct') calcDuct();
             refreshComponentCategories();
+            updateCadToolLabels();
+        }
+
+        function updateCadToolLabels() {
+            const cfg = {
+                pipe: { icon: 'fa-circle-dot text-cyan-400', label: '+ Collare Tubo' },
+                tray: { icon: 'fa-box-archive text-cyan-400', label: '+ Mensola Passerella' },
+                duct: { icon: 'fa-square text-cyan-400', label: '+ Staffa Canale' }
+            }[sysType] || { icon: 'fa-circle-dot text-cyan-400', label: '+ Collare Tubo' };
+            const iconEl = document.getElementById('cad-tool-pipe-icon');
+            const labelEl = document.getElementById('cad-tool-pipe-label');
+            if (iconEl) iconEl.className = 'fa-solid ' + cfg.icon;
+            if (labelEl) labelEl.innerText = cfg.label;
         }
 
         function showLinear(pfx, dry, second, len) {
@@ -2523,12 +2536,14 @@
                     drawCadCanvas();
                     solveHangerStructure();
                 } else if (activeCadTool === 'pipe') {
+                    const kindLabel = { pipe: 'Tubo', tray: 'Passerella', duct: 'Canale' }[sysType] || 'Tubo';
                     cadHanger.pipes.push({
                         id: Date.now(),
-                        label: `Tubo #${cadHanger.pipes.length + 1}`,
+                        label: `${kindLabel} #${cadHanger.pipes.length + 1}`,
                         x: snapX,
                         g1: 0.25,
-                        g2: 0.40
+                        g2: 0.40,
+                        kind: sysType
                     });
                     setCadTool('select');
                     renderCadElementsTable();
@@ -2616,6 +2631,16 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(`${mm}`, px, 22);
             }
+
+            // Linea centrale verticale del foglio: la trave e' sempre simmetrica rispetto a questa
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(W / 2, 14);
+            ctx.lineTo(W / 2, H - 14);
+            ctx.stroke();
+            ctx.setLineDash([]);
 
             // Beam Profile Body
             const mKey = currentManufacturer;
@@ -2816,25 +2841,53 @@
 
         function drawCadPipeElement(ctx, px, yBeam, pipe, idx) {
             const rPipe = 20;
+            const kind = pipe.kind || 'pipe';
             const pLoadTot = (pipe.g1 * 1.30 + pipe.g2 * 1.50).toFixed(2);
 
-            ctx.fillStyle = '#0284c7';
-            ctx.beginPath();
-            ctx.arc(px, yBeam - rPipe - 4, rPipe + 3, 0, Math.PI * 2);
-            ctx.fill();
+            if (kind === 'pipe') {
+                ctx.fillStyle = '#0284c7';
+                ctx.beginPath();
+                ctx.arc(px, yBeam - rPipe - 4, rPipe + 3, 0, Math.PI * 2);
+                ctx.fill();
 
-            ctx.fillStyle = '#0f172a';
-            ctx.beginPath();
-            ctx.arc(px, yBeam - rPipe - 4, rPipe, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#38bdf8';
-            ctx.stroke();
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(px, yBeam - rPipe - 4, rPipe, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#38bdf8';
+                ctx.stroke();
 
-            ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
-            ctx.beginPath();
-            ctx.arc(px, yBeam - rPipe - 4, rPipe - 3, 0, Math.PI * 2);
-            ctx.fill();
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.beginPath();
+                ctx.arc(px, yBeam - rPipe - 4, rPipe - 3, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (kind === 'tray') {
+                // Passerella: canalina a U vista di profilo
+                const w = 34, h = 22, top = yBeam - rPipe - 4 - h / 2;
+                ctx.fillStyle = '#0284c7';
+                ctx.fillRect(px - w / 2 - 3, top - 3, w + 6, h + 6);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(px - w / 2, top, w, h);
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - w / 2, top, w, h);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.fillRect(px - w / 2 + 4, top + h - 8, w - 8, 5);
+            } else {
+                // Canale aria: sezione rettangolare
+                const w = 36, h = 26, top = yBeam - rPipe - 4 - h / 2;
+                ctx.fillStyle = '#0284c7';
+                ctx.fillRect(px - w / 2 - 3, top - 3, w + 6, h + 6);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(px - w / 2, top, w, h);
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - w / 2, top, w, h);
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px - w / 2 + 4, top + 4, w - 8, h - 8);
+            }
 
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#38bdf8';
@@ -3428,6 +3481,14 @@
             document.getElementById('modal-import-bom').classList.add('hidden');
         }
 
+        function kindFromItemType(type) {
+            if (!type) return sysType;
+            if (type.includes('Passerella') || type.includes('Canalina')) return 'tray';
+            if (type.includes('Canale Aria')) return 'duct';
+            if (type.includes('Tubazione')) return 'pipe';
+            return sysType;
+        }
+
         function importModeLineAsPointLoads() {
             closeImportModal();
             const pitch = parseFloat(document.getElementById('h-span-pitch').value) || 2.5;
@@ -3445,7 +3506,8 @@
                         label: it.spec.substring(0, 16),
                         x: snapX,
                         g1: (it.g1aKg * 9.80665) / 1000,
-                        g2: (it.g2Kg * 9.80665) / 1000
+                        g2: (it.g2Kg * 9.80665) / 1000,
+                        kind: kindFromItemType(it.type)
                     });
                 });
             } else {
@@ -3460,7 +3522,8 @@
                         label: `${it.spec.split('-')[0].trim()} (${pitch}m)`,
                         x: snapX,
                         g1: g1_kN,
-                        g2: g2_kN
+                        g2: g2_kN,
+                        kind: kindFromItemType(it.type)
                     });
                 });
             }
